@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0d">
+<title>Заказ без границ — Mini App</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f6f6f7;color:#111;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display","Segoe UI",sans-serif}
+.app{max-width:720px;margin:auto;padding-bottom:92px}.hero{background:#0b0b0d;color:white;padding:28px 18px 22px;border-radius:0 0 26px 26px}
+.top{display:flex;justify-content:space-between;align-items:center}.brand{font-size:22px;font-weight:800;letter-spacing:-.5px}.tg{font-size:12px;opacity:.65}
+h1{font-size:31px;line-height:1.05;margin:30px 0 18px;letter-spacing:-1.2px}.search{width:100%;border:0;border-radius:14px;padding:14px 16px;font-size:16px;outline:none;background:#fff}
+.content{padding:18px}.cats{display:flex;gap:9px;overflow:auto;padding:2px 0 17px}.cat{border:0;background:#fff;padding:10px 15px;border-radius:20px;white-space:nowrap;font-weight:600;color:#555}.cat.active{background:#111;color:#fff}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.card{background:#fff;border-radius:20px;overflow:hidden;box-shadow:0 2px 12px #00000008}.pic{height:180px;background:#eee;display:flex;align-items:center;justify-content:center;overflow:hidden}.pic img{width:100%;height:100%;object-fit:cover}.info{padding:13px}.name{font-weight:700;font-size:15px;min-height:38px}.meta{font-size:12px;color:#888;margin:5px 0 10px}.row{display:flex;align-items:center;justify-content:space-between;gap:8px}.price{font-size:17px;font-weight:800}.add{border:0;background:#111;color:#fff;width:36px;height:36px;border-radius:12px;font-size:22px;line-height:1}
+.empty{text-align:center;padding:55px 20px;color:#888;display:none}
+.cartbar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);width:min(680px,calc(100% - 24px));background:#111;color:#fff;border-radius:18px;padding:14px 16px;display:none;justify-content:space-between;align-items:center;box-shadow:0 10px 30px #0003;z-index:5}.cartbar button{border:0;background:#fff;color:#111;border-radius:12px;padding:10px 14px;font-weight:800}
+.modal{position:fixed;inset:0;background:#0007;display:none;align-items:flex-end;z-index:10}.sheet{background:#fff;width:100%;max-width:720px;margin:auto;border-radius:26px 26px 0 0;padding:20px;max-height:85vh;overflow:auto}.sheet h2{margin:2px 0 18px}.item{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid #eee}.thumb{width:58px;height:58px;border-radius:12px;object-fit:cover}.itemmain{flex:1}.qty{display:flex;gap:9px;align-items:center;margin-top:7px}.qty button{border:0;background:#eee;width:30px;height:30px;border-radius:9px;font-size:18px}.total{display:flex;justify-content:space-between;font-size:19px;font-weight:800;padding:18px 0}.checkout{width:100%;border:0;border-radius:15px;padding:15px;background:#111;color:#fff;font-size:16px;font-weight:800}.close{float:right;border:0;background:#eee;border-radius:50%;width:34px;height:34px;font-size:18px}
+@media(min-width:600px){.pic{height:220px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="hero">
+  <div class="top"><div class="brand">ЗАКАЗ БЕЗ ГРАНИЦ</div><div class="tg">TG MINI APP</div></div>
+  <h1>Каталог<br>товаров</h1>
+  <input id="search" class="search" placeholder="🔎  Поиск товара...">
+</header>
+<main class="content">
+  <div id="cats" class="cats"></div>
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty">Ничего не найдено</div>
+</main>
+</div>
+
+<div id="cartbar" class="cartbar"><div><b id="cartCount">0 товаров</b><br><span id="cartSum">0 ₽</span></div><button onclick="openCart()">Корзина →</button></div>
+
+<div id="modal" class="modal" onclick="if(event.target===this)closeCart()">
+  <section class="sheet">
+    <button class="close" onclick="closeCart()">×</button><h2>Корзина</h2>
+    <div id="cartItems"></div>
+    <div class="total"><span>Итого</span><span id="modalSum">0 ₽</span></div>
+    <button class="checkout" onclick="checkout()">Оформить заказ в Telegram</button>
+  </section>
+</div>
+
+<script>
+const products=[
+{id:1,name:"iPhone 17 Pro",cat:"Смартфоны",price:119990,img:"https://images.unsplash.com/photo-1592750475338-74b7b21085ab?auto=format&fit=crop&w=900&q=90"},
+{id:2,name:"iPhone 17",cat:"Смартфоны",price:89990,img:"https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=900&q=90"},
+{id:3,name:"AirPods Pro",cat:"Аксессуары",price:24990,img:"https://images.unsplash.com/photo-1600294037681-c80b4cb5b434?auto=format&fit=crop&w=900&q=90"},
+{id:4,name:"Apple Watch",cat:"Аксессуары",price:39990,img:"https://images.unsplash.com/photo-1546868871-7041f2a55e12?auto=format&fit=crop&w=900&q=90"},
+{id:5,name:"MacBook Air",cat:"Ноутбуки",price:119990,img:"https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=900&q=90"},
+{id:6,name:"iPad Air",cat:"Планшеты",price:69990,img:"https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?auto=format&fit=crop&w=900&q=90"}
+];
+let cart={}, active="Все";
+const tg=window.Telegram?.WebApp; if(tg){tg.ready();tg.expand();}
+
+const rub=n=>n.toLocaleString("ru-RU")+" ₽";
+function renderCats(){const cats=["Все",...new Set(products.map(p=>p.cat))];document.getElementById("cats").innerHTML=cats.map(c=>`<button class="cat ${c===active?"active":""}" onclick="active='${c}';render()">${c}</button>`).join("")}
+function render(){
+ const q=document.getElementById("search").value.toLowerCase().trim();
+ const list=products.filter(p=>(active==="Все"||p.cat===active)&&(!q||p.name.toLowerCase().includes(q)));
+ document.getElementById("grid").innerHTML=list.map(p=>`<article class="card"><div class="pic"><img src="${p.img}" alt="${p.name}"></div><div class="info"><div class="name">${p.name}</div><div class="meta">${p.cat}</div><div class="row"><div class="price">${rub(p.price)}</div><button class="add" onclick="add(${p.id})">+</button></div></div></article>`).join("");
+ document.getElementById("empty").style.display=list.length?"none":"block"; renderCats(); updateCart();
+}
+function add(id){cart[id]=(cart[id]||0)+1;updateCart(); if(tg?.HapticFeedback)tg.HapticFeedback.impactOccurred("light")}
+function change(id,d){cart[id]=(cart[id]||0)+d;if(cart[id]<=0)delete cart[id];renderCart();updateCart()}
+function updateCart(){let count=Object.values(cart).reduce((a,b)=>a+b,0),sum=Object.entries(cart).reduce((s,[id,n])=>s+products.find(p=>p.id==id).price*n,0);document.getElementById("cartCount").textContent=count+" "+(count===1?"товар":"товаров");document.getElementById("cartSum").textContent=rub(sum);document.getElementById("cartbar").style.display=count?"flex":"none";document.getElementById("modalSum").textContent=rub(sum)}
+function renderCart(){document.getElementById("cartItems").innerHTML=Object.entries(cart).map(([id,n])=>{let p=products.find(x=>x.id==id);return `<div class="item"><img class="thumb" src="${p.img}"><div class="itemmain"><b>${p.name}</b><div>${rub(p.price*n)}</div><div class="qty"><button onclick="change(${id},-1)">−</button><span>${n}</span><button onclick="change(${id},1)">+</button></div></div></div>`}).join("")||"<p>Корзина пуста</p>"}
+function openCart(){renderCart();document.getElementById("modal").style.display="flex"}
+function closeCart(){document.getElementById("modal").style.display="none"}
+function checkout(){
+ if(!Object.keys(cart).length)return;
+ const lines=Object.entries(cart).map(([id,n])=>{let p=products.find(x=>x.id==id);return `${p.name} × ${n} — ${rub(p.price*n)}`});
+ const total=Object.entries(cart).reduce((s,[id,n])=>s+products.find(p=>p.id==id).price*n,0);
+ const text=`Здравствуйте! Хочу оформить заказ:\\n\\n${lines.join("\\n")}\\n\\nИтого: ${rub(total)}`;
+ if(tg?.showPopup) tg.showPopup({title:"Заказ готов",message:"Сейчас откроется Telegram для отправки заявки.",buttons:[{id:"ok",type:"ok",text:"Продолжить"}]},()=>{window.location.href="https://t.me/zakaz_bez_granits?text="+encodeURIComponent(text)});
+ else window.location.href="https://t.me/zakaz_bez_granits?text="+encodeURIComponent(text);
+}
+document.getElementById("search").addEventListener("input",render);
+render();
+</script>
+</body>
+</html>
